@@ -15,20 +15,22 @@ First, add the package as a dependency to your `build.zig.zon` with the followin
 zig fetch --save git+https://github.com/AceHanded/zlocres.git
 ```
 
-Next, add the following code to your `build.zig`.
+Next, add the following code to your `build.zig` to register the dependency and allow the package to be imported.
 
 ```zig
 const zlocres = b.dependency("zlocres", .{
     .target = target,
     .optimize = optimize,
 });
+// If you are building a library instead of an executable, 
+// replace "exe" with "lib" (or "mod", or whichever is appropriate)
 exe.root_module.addImport("zlocres", zlocres.module("zlocres"));
 ```
 
 ## Examples
 
 > [!NOTE]
-> The examples aim to showcase the usage of the package and therefore may not necessarily represent the "best" ways to use it.
+> The examples aim to showcase the different features of the package and therefore may not necessarily represent the *best* ways to utilize it.
 
 ### Hashing
 
@@ -39,6 +41,7 @@ const hash = zlocres.hash;
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
+
     std.debug.print("0x{x}\n", .{try hash.hashUtf16ToU32(allocator, "example")});  // 0xbf7a4ae6
     std.debug.print("0x{x}\n", .{hash.crcHash32("example")});  // 0x7c20ea98
 }
@@ -55,20 +58,18 @@ const Locmeta = zlocres.loc.Locmeta;
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    var locmeta_file = try LocmetaFile.init(allocator, "./Test.locmeta");
-    const locmeta_res = try locmeta_file.read();
-    std.debug.print("{}\n", .{locmeta_res.version});  // loc.LocmetaVer.V1 (assuming latest version)
 
     const new_locmeta = Locmeta.init(
         LocmetaVer.V1,  // version
         "en",  // native_culture
-        "en/Test2.locres",  // native_locres
+        "en/Test.locres",  // native_locres
         &[2][]const u8{ "en", "fi" }  // compiled_cultures
     );
-    var locmeta_file2 = try LocmetaFile.init(allocator, "./Test2.locmeta");
-    try locmeta_file2.write(new_locmeta);
-    const locmeta_res2 = try locmeta_file2.read();
-    std.debug.print("{}\n", .{locmeta_res2.version});  // loc.LocmetaVer.V1
+    var locmeta_file = try LocmetaFile.init(allocator, "./Test.locmeta");
+    try locmeta_file.write(new_locmeta);
+    const locmeta_res = try locmeta_file.read();
+
+    std.debug.print("{}\n", .{locmeta_res.version});  // loc.LocmetaVer.V1
 }
 ```
 
@@ -77,22 +78,17 @@ pub fn main() !void {
 ```zig
 const std = @import("std");
 const zlocres = @import("zlocres");
-const hash = zlocres.hash;
 const LocresFile = zlocres.loc.LocresFile;
 const LocresVer = zlocres.loc.LocresVer;
 const LocresNamespace = zlocres.loc.LocresNamespace;
 const LocresEntry = zlocres.loc.LocresEntry;
 const Locres = zlocres.loc.Locres;
+const hash = zlocres.hash;
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    var locres_file = try LocresFile.init(allocator, "./Test.locres");
-    var locres_res = try locres_file.read();
-    defer locres_res.deinit();  // Remember to free the namespaces!
-
-    std.debug.print("{}\n", .{locres_res.version});  // loc.LocresVer.CityHash (assuming latest version)
-
     const new_entry_key = "ExampleEntry";
+
     const new_entry = LocresEntry.init(
         new_entry_key,  // key
         "example",  // translation
@@ -112,11 +108,12 @@ pub fn main() !void {
     defer new_locres.deinit();
 
     try new_locres.set(new_namespace.name, new_namespace);
-    var locres_file2 = try LocresFile.init(allocator, "./Test2.locres");
-    try locres_file2.write(new_locres);
-    var locres_res2 = try locres_file2.read();
-    defer locres_res2.deinit();
+    var locres_file = try LocresFile.init(allocator, "./Test.locres");
+    try locres_file.write(new_locres);
+    var locres_res = try locres_file.read();
+    defer locres_res.deinit();  // Remember to free the namespaces!
 
-    std.debug.print("{}\n", .{locres_res2.version});  // loc.LocresVer.CityHash
+    std.debug.print("{}\n", .{locres_res.version});  // loc.LocresVer.CityHash
+    std.debug.print("{}\n", .{locres_res.count()});  // 1
 }
 ```
